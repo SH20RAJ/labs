@@ -1,39 +1,53 @@
-# Lab Exercises: Module II
+# Lab Exercises: Module II (Mastery)
 
-## Exercise 1: Command Line Tools
+## Challenge 1: The Log Summarizer
 
-**Goal**: Create a script that acts differently based on arguments.
+**Goal**: Use Associative Arrays and Awk.
 
-Create a script `calc.sh` that takes 3 arguments: `operation` (`add`, `sub`, `mul`), `number1`, and `number2`.
+Write `summarize_logs.sh`.
 
-- Usage: `./calc.sh add 5 10` -> Output: `15`
-- Handle invalid operations and missing arguments gracefully.
+1.  Read a mock access log (format: `IP - - [Date] "Request" Status Bytes`).
+    ```
+    192.168.1.1 - - [01/Jan/2023 ...] "GET /index.html" 200 450
+    192.168.1.2 - - [01/Jan/2023 ...] "POST /login" 403 120
+    ```
+2.  Count requests per IP address using an **Associative Array**.
+3.  Count requests per Status Code (200, 404, 500).
+4.  Print the Top 3 IPs and Top 3 Status Codes.
 
-## Exercise 2: System Health Monitor
+## Challenge 2: The Bulk Renamer
 
-**Goal**: Automation and file logging.
+**Goal**: Parameter Expansion and Loops.
 
-Write a script `health_check.sh` that:
+Write `renamer.sh`.
 
-1. Logs the current date and time to `health.log`.
-2. Checks if CPU load (1 min average) is above 1.0 (use `uptime` or `top` or `/proc/loadavg`).
-3. Checks if disk space on root `/` is used more than 80%.
-4. If either condition is met, print "SYSTEM WARNING" to the log file.
+1.  Accept a directory and a file extension (e.g., `jpg`) as arguments (use `getopts`).
+2.  Iterate through all files.
+3.  Prefix every file with its creation date `YYYY-MM-DD_filename.jpg`.
+4.  Replace spaces in filenames with underscores `_`.
+    - Example: `My Vacation.jpg` -> `2023-01-01_My_Vacation.jpg`.
 
-## Exercise 3: Automating Backups with Rotation
+## Challenge 3: Reliable Backup with Rotation
 
-**Goal**: Advanced file handling and arrays.
+**Goal**: Arrays, Traps, and Error Handling.
 
-Create `smart_backup.sh` that:
+Write `backup_pro.sh`.
 
-1. Takes a source folder path as argument.
-2. Creates a tarball in a `backups/` folder with timestamp.
-3. **Rotation Logic**: Keep only the last 5 backups. Delete the oldest ones if there are more than 5 files in the backup folder.
+1.  Use `set -euo pipefail`.
+2.  Define a `cleanup` function trapped on EXIT to remove temporary tarballs.
+3.  Store backup paths in an Indexed Array.
+4.  Create a backup.
+5.  **Rotation**: Keep only the last 3 backups. Use an array to list existing backups, sort by time, and delete the oldest if count > 3.
 
-## Exercise 4: Cron Setup
+## Challenge 4: Systemd Service Monitor
 
-**Goal**: Scheduling.
+**Goal**: Automation.
 
-1. Add a cron entry to run your `health_check.sh` every 10 minutes.
-2. Add a cron entry to run `smart_backup.sh` every day at 3 AM.
-   _(Note: Do not actually modify your system's crontab if you are on a shared machine, just write down the valid cron lines)_.
+Create a script that:
+
+1.  Check if `nginx` is running (`systemctl is-active`).
+2.  If NOT active:
+    - Try to restart it.
+    - Check again.
+    - If still failed, send an alert (echo to stderr) and exit with code 1.
+    - If recovered, log a message to `/var/log/recovery.log`.

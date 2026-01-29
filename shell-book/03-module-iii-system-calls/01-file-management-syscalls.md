@@ -1,102 +1,84 @@
-# File Management System Calls
+# File Management System Calls: The Kernel Interface
 
-In this module, we move from shell commands to C programming, interacting directly with the Linux kernel via **System Calls**.
+In system programming, we bypass standard libraries (`FILE *`, `fopen`) and speak directly to the kernel using **File Descriptors** (integers).
 
-## 1. What is a System Call?
+## 1. The Big 5 Syscalls
 
-A system call (syscall) is the programmatic way a program requests a service from the kernel.
+Header: `<fcntl.h>`, `<unistd.h>`
 
-- **User Space**: Where your C program runs.
-- **Kernel Space**: Where the syscall handles the request.
+### `open()` - The Gatekeeper
 
-## 2. File I/O System Calls
+**Prototype**: `int open(const char *pathname, int flags, mode_t mode);`
 
-Unlike high-level C functions (`fopen`, `fprintf`), syscalls work with **File Descriptors (int)**.
+| Flag        | Description                                                       |
+| :---------- | :---------------------------------------------------------------- |
+| `O_RDONLY`  | Open for reading only.                                            |
+| `O_WRONLY`  | Open for writing only.                                            |
+| `O_RDWR`    | Open for reading and writing.                                     |
+| **O_CREAT** | Create file if it doesn't exist. **Requires `mode` arg**.         |
+| `O_TRUNC`   | Truncate file length to 0 (Erases content).                       |
+| `O_APPEND`  | Write operations append to end of file.                           |
+| `O_EXCL`    | Used with `O_CREAT`. Fail if file already exists. (Atomic check). |
+| `O_SYNC`    | Write waits for physical disk I/O (Slower, Safer).                |
 
-### Headers Required
+**Mode (Permissions)**:
+Used only with `O_CREAT`. e.g., `0644` (`S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH`).
 
-```c
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-```
+### `read()` & `write()`
 
-### `open()`
+**Prototype**: `ssize_t read(int fd, void *buf, size_t count);`
 
-Opens a file and returns a file descriptor (fd).
+- **Returns**: Number of bytes read/written.
+- **0**: End of File (EOF) for read.
+- **-1**: Error (Check `errno`).
 
-```c
-int fd = open("file.txt", O_RDONLY);
-if (fd < 0) {
-    perror("Error opening file");
-}
-```
-
-**Flags**:
-
-- `O_RDONLY`: Read only.
-- `O_WRONLY`: Write only.
-- `O_CREAT`: Create file if not exists.
-- `O_TRUNC`: Truncate file length to 0.
-
-### `read()`
-
-Reads bytes from a file descriptor into a buffer.
-
-```c
-char buffer[100];
-ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
-```
-
-### `write()`
-
-Writes bytes from a buffer to a file descriptor.
-
-```c
-char *msg = "Hello Kernel";
-write(fd, msg, strlen(msg));
-```
+**Handling Partial Reads**:
+Always check the return value. Network sockets or pipes may return fewer bytes than requested.
 
 ### `close()`
 
-Closes the file descriptor.
+**Prototype**: `int close(int fd);`
+Always close FDs to prevent leaks.
 
-```c
-close(fd);
-```
+### `lseek()` - Moving the Cursor
 
-### Example: Copy File Program (Simple `cp`)
+**Prototype**: `off_t lseek(int fd, off_t offset, int whence);`
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
+| Whence     | Description                                   |
+| :--------- | :-------------------------------------------- |
+| `SEEK_SET` | Offset from **Beginning** of file.            |
+| `SEEK_CUR` | Offset from **Current** position.             |
+| `SEEK_END` | Offset from **End** (Used to find file size). |
 
-#define BUFFER_SIZE 1024
+## 2. Error Handling (`errno`)
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("Usage: %s <source> <dest>\n", argv[0]);
-        return 1;
-    }
+All syscalls return `-1` on error and set the global variable `errno`.
 
-    int src = open(argv[1], O_RDONLY);
-    if (src < 0) { perror("Source error"); return 1; }
+**Headers**: `<errno.h>`, `<string.h>`
 
-    int dest = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (dest < 0) { perror("Dest error"); close(src); return 1; }
+| Method       | Description                                    | Example                            |
+| :----------- | :--------------------------------------------- | :--------------------------------- |
+| `perror()`   | Prints "Message: Error description" to stderr. | `perror("open failed");`           |
+| `strerror()` | Returns string description of error code.      | `printf("%s\n", strerror(errno));` |
 
-    char buffer[BUFFER_SIZE];
-    ssize_t bytes;
+**Common Codes**:
 
-    while ((bytes = read(src, buffer, BUFFER_SIZE)) > 0) {
-        write(dest, buffer, bytes);
-    }
+- `EACCES`: Permission denied.
+- `ENOENT`: No such file or directory.
+- `EEXIST`: File exists (`O_CREAT | O_EXCL`).
+- `EINTR`: Interrupted by signal. (Should retry).
 
-    close(src);
-    close(dest);
-    return 0;
-}
-```
+## 3. Advanced I/O
+
+### `dup()` and `dup2()`
+
+Duplicate a file descriptor. Crucial for **Redirection**.
+
+- `dup2(oldfd, newfd)`: Atomic. Closes `newfd` if open, then copies `oldfd` to `newfd`.
+- **Example**: `dup2(fd, STDOUT_FILENO)` makes `printf` write to file `fd`.
+
+### `ioctl()` and `fcntl()`
+
+Control device parameters or file properties.
+
+- `fcntl(fd, F_SETFL, O_NONBLOCK)`: Make I/O non-blocking.

@@ -1,49 +1,68 @@
-# Linux Kernel Modules (LKM)
+# Linux Kernel Modules (Deep Dive)
 
-## 1. What is a Kernel Module?
+## 1. The Kernel Environment
 
-The Linux kernel is monolithic but extensible. LKMs allow dynamic loading/unloading of code (drivers, filesystems) without rebooting.
+- **No libc**: You cannot use `printf`, `malloc`, `sleep`.
+- **Kernel Stack**: Very small (Simultaneous threads have ~8KB stack). Don't allocate huge arrays on stack!
+- **Concurrency**: Your code can be preempted at any time.
 
-## 2. Hello World Module
+## 2. API Reference
 
-Kernel code is written in C but has different rules:
-
-- No `libc` (no `printf`, use `printk`).
-- No floating point math.
-- Small stack space.
-
-### The Code (`hello.c`)
+### Headers
 
 ```c
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Your Name");
-MODULE_DESCRIPTION("A simple Hello World LKM");
-
-static int __init hello_init(void) {
-    printk(KERN_INFO "Hello, Kernel World!\n");
-    return 0; // Success
-}
-
-static void __exit hello_exit(void) {
-    printk(KERN_INFO "Goodbye, Kernel World!\n");
-}
-
-module_init(hello_init);
-module_exit(hello_exit);
+#include <linux/module.h>  // Core
+#include <linux/kernel.h>  // Types and Macros
+#include <linux/init.h>    // __init, __exit
+#include <linux/kthread.h> // Threads
+#include <linux/sched.h>   // Task Scheduling
+#include <linux/delay.h>   // msleep, udelay
 ```
 
-## 3. Compiling Modules
+### Logging (`printk`)
 
-You need a `Makefile` that points to the kernel headers.
+**Levels**:
 
-### `Makefile`
+- `KERN_EMERG` (0): System is unusable.
+- `KERN_ALERT` (1): Action required immediately.
+- `KERN_CRIT` (2): Critical conditions.
+- `KERN_ERR` (3): Error.
+- `KERN_WARNING` (4): Warning.
+- `KERN_INFO` (6): Informational.
+- `KERN_DEBUG` (7): Debug-level.
+
+Use `pr_info()`, `pr_err()` macros for cleaner code.
+
+```c
+pr_info("Module loaded successfully\n");
+```
+
+### Memory Allocation
+
+**`kmalloc(size_t size, gfp_t flags)`**:
+
+- Used for small allocations (< 128KB, usually physically contiguous).
+- **Flags**:
+  - `GFP_KERNEL`: Can sleep (wait for memory). Standard.
+  - `GFP_ATOMIC`: Cannot sleep. Use in Interrupts.
+  - `GFP_DMA`: Under 16MB (for DMA).
+
+**`vmalloc(unsigned long size)`**:
+
+- Allocates virtually contiguous memory (physically fragmented).
+- Slower (TLB trashing). Used for large buffers.
+
+**Freeing**:
+
+- `kfree(ptr)`
+- `vfree(ptr)`
+
+## 3. The Build System (Kbuild)
+
+Your Makefile calls the kernel's Makefile.
 
 ```make
-obj-m += hello.o
+obj-m += mymodule.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
@@ -52,28 +71,5 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 ```
 
-### Build & Run
-
-1. `make` -> Generates `hello.ko`.
-2. `sudo insmod hello.ko` -> Insert module.
-3. `dmesg | tail` -> Check logs for "Hello, Kernel World!".
-4. `sudo rmmod hello` -> Remove module.
-5. `dmesg | tail` -> Check logs for "Goodbye...".
-
-## 4. Module Parameters
-
-Pass arguments when loading a module.
-
-```c
-#include <linux/moduleparam.h>
-
-static int myint = 42;
-module_param(myint, int, 0644); // name, type, permissions
-```
-
-Inside `hello_init`, you can use `myint`.
-Load with:
-
-```bash
-sudo insmod hello.ko myint=100
-```
+- `obj-m`: Build as module.
+- `obj-y`: Build into kernel (static).

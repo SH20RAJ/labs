@@ -1,30 +1,38 @@
-# Lab Exercises: Module V
+# Lab Exercises: Module V (Mastery)
 
-## Exercise 1: The Periodic Logger
+## Challenge 1: The Race Condition
 
-**Goal**: Kernel Threads `kthread_run`.
+**Goal**: Demonstrate the need for locks.
 
-Write a kernel module `periodic.c` that:
+1.  Create a module with a global variable `static int count = 0`.
+2.  Create a function `void increment(void *data)` that runs a loop 1,000,000 times: `count++`.
+3.  Launch **two** kernel threads running this function.
+4.  Wait for them. Print `count`.
+5.  **Observe**: Is it 2,000,000? Likely less.
+6.  **Fix**: Add `atomic_inc(&count)` or `spin_lock`.
 
-1. Starts a kernel thread on initialization.
-2. The thread loops indefinitely (until stopped) and prints "Tick Tock: <jiffies>" to the kernel log every 2 seconds.
-3. Stops the thread gracefully on module unload.
+## Challenge 2: The Producer-Consumer
 
-## Exercise 2: Race Condition Simulator
+**Goal**: Semaphores (`down/up`).
 
-**Goal**: Understand synchronization.
+1.  Buffer Size = 5 (Circular Buffer).
+2.  **Producer Thread**: Generates data, puts in buffer.
+    - Must wait if Buffer Full (`down(&empty)`).
+    - Protect buffer access (`mutex`).
+    - Signal Data Ready (`up(&full)`).
+3.  **Consumer Thread**: Reads data.
+    - Must wait if Buffer Empty (`down(&full)`).
+4.  Implement using `struct semaphore` and `kthread`.
 
-1. Create a module with a shared global variable `int counter = 0`.
-2. Launch two threads that increment `counter` 1000 times in a loop.
-3. **Without Locks**: Run it. Print the final value of `counter`. Is it 2000? Probably not.
-4. **With Locks**: Add a `spinlock` or `mutex`. Run it again. Is it 2000 now?
+## Challenge 3: Hacking the Syscall Table (Rootkit Style)
 
-## Exercise 3: User-Space Tester
+**Goal**: Understand Kernel Internals. (Educational Only).
 
-**Goal**: Invoking syscalls.
+1.  Normally, the syscall table is Read-Only.
+2.  **Disable Write Protection**: Toggle `CR0` register bit 16.
+3.  **Hook `sys_mkdir`**: Save the original function pointer. Replace it with `my_mkdir`.
+4.  **In `my_mkdir`**: Print "mkdir called for: <path>". Then call original `sys_mkdir`.
+5.  **Restore**: On module unload, restore original function.
+6.  **Test**: Run `mkdir test` and check dmesg.
 
-_Note: You cannot easily add a real syscall without recompiling the kernel. For this exercise, we will simulate it using a kernel module + `debugfs` or `procfs`._
-
-1. Create a kernel module that creates a file `/proc/mysyscall`.
-2. When you write to this file (e.g., `echo "hello" > /proc/mysyscall`), the kernel module acts like your syscall implementation.
-3. Write a C program that opens `/proc/mysyscall` and writes data to it.
+_(Warning: This may crash your kernel if done wrong. Use a VM)._

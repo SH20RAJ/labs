@@ -1,111 +1,109 @@
-# System Info, Permissions, and Processes
+# System Info, Permissions, and Advanced Process Management
 
-## 1. File Permissions and Ownership
+## 1. Advanced File Permissions
 
-Linux follows a strict permission model. Every file has an owner, a group, and a set of permissions for three categories:
+Linux permissions are more than just `rwx`.
 
-1. **User (u)**: The owner of the file.
-2. **Group (g)**: Users in the file's group.
-3. **Others (o)**: Everyone else.
+### The Mode Bits
 
-### Understanding `ls -l` output
+`rwx` maps to `4-2-1`.
 
-```bash
--rwxr-xr-- 1 user group 4096 Jan 1 12:00 script.sh
-```
+- `chmod 777` = `rwxrwxrwx`
+- `chmod 755` = `rwxr-xr-x`
 
-The first column `-rwxr-xr--` tells the story:
+### Special Permissions (The 4th Digit)
 
-- **Type**: First `-` means file, `d` means directory.
-- **User**: `rwx` (Read, Write, Execute).
-- **Group**: `r-x` (Read, Execute, NO Write).
-- **Other**: `r--` (Read only).
+| Bit        | Name         | Symbol      | Value | Effect                                                                                       |
+| :--------- | :----------- | :---------- | :---- | :------------------------------------------------------------------------------------------- |
+| **SUID**   | Set User ID  | `s` (User)  | 4000  | Run as **owner**, not as current user. (e.g., `passwd` needs root to write to `/etc/shadow`) |
+| **SGID**   | Set Group ID | `s` (Group) | 2000  | Files created in directory inherit group ID. (Collaborative Folders).                        |
+| **Sticky** | Sticky Bit   | `t`         | 1000  | Only owner can delete files in directory. (e.g., `/tmp`).                                    |
 
-### `chmod` - Change Mode
-
-Modify permissions using symbolic or numeric mode.
-
-**Numeric Mode (Octal)**:
-
-- Read = 4
-- Write = 2
-- Execute = 1
-
-Examples:
+**Setting Special Bits**:
 
 ```bash
-$ chmod 755 script.sh   # u=rwx (7), g=rx (5), o=rx (5)
-$ chmod 644 data.txt    # u=rw (6), g=r (4), o=r (4)
-$ chmod 777 public.dir  # DANGEROUS: Everyone can write!
+chmod u+s file      # Add SUID
+chmod g+s dir       # Add SGID
+chmod +t dir        # Add Sticky Bit
+chmod 4755 file     # SUID + 755
 ```
 
-### `chown` - Change Owner
+### ACLs (Access Control Lists)
 
-Change file ownership (usually requires `sudo`).
+Standard groups are limited (only one group per file). ACLs allow fine-grained access.
+
+**Commands**: `getfacl`, `setfacl`.
 
 ```bash
-$ sudo chown newuser:newgroup file.txt
+# Give user 'alice' read/write access to a file owned by 'bob'
+setfacl -m u:alice:rw project_plan.txt
+
+# Remove ACL
+setfacl -x u:alice project_plan.txt
+
+# View ACLs
+getfacl project_plan.txt
 ```
 
-## 2. System Information
+### `umask` - Default Permissions
 
-### Hardware & OS Info
+Determines permissions for NEW files.
 
-```bash
-$ uname -a              # Kernel and system info
-$ hostname              # Network name of the machine
-$ uptime                # How long system has been running
-$ whoami                # Current user
-$ top / htop            # Real-time process and resource monitoring
-```
+- **Default**: `022` (Files get 644, Dirs get 755).
+- **Calculation**: `Max Perms - Umask`.
+  - File: `666 - 022 = 644`.
+  - Dir: `777 - 022 = 755`.
 
-### Disk Usage
+---
 
-```bash
-$ df -h                 # Disk space usage (Filesystem)
-$ du -sh foldername/    # Disk usage of specific directory
-```
+## 2. Advanced Process Management
 
-### Memory Usage
+### `ps` - Process Status
 
-```bash
-$ free -h               # RAM and Swap usage
-```
+**Usage**: `ps [OPTIONS]`
 
-## 3. Managing Processes
+| Option   | Description                                             |
+| :------- | :------------------------------------------------------ |
+| `aux`    | **BSD Style**. All users, with TTYs. Standard use.      |
+| `-ef`    | **System V Style**. Full listing.                       |
+| `--sort` | Sort output. `ps aux --sort=-%mem` (Sort by RAM usage). |
+| `axjf`   | **Tree View**. Shows parent-child relationship.         |
 
-Every running program is a process with a unique **PID** (Process ID).
+### `top` & `htop`
 
-### Listing Processes
+Real-time monitoring.
 
-```bash
-$ ps aux                # Snapshot of all running processes
-$ ps -ef                # Another format for listing processes
-```
+- **Load Average**: 1min, 5min, 15min. (1.0 = 1 CPU fully loaded).
+- **NI (Nice Value)**: Priority. `-20` (Highest) to `19` (Lowest).
+- **RES**: Resident Memory (Physical RAM).
+- **VIRT**: Virtual Memory.
 
-### Killing Processes
+### `kill` - Signals
 
-Terminating a hung or unwanted program.
+**Usage**: `kill -[SIGNAL] PID`
 
-```bash
-$ kill 1234             # Kill process with PID 1234 (SIGTERM - polite kill)
-$ kill -9 1234          # Force kill (SIGKILL - immediate termination)
-```
+| Signal | ID      | Name      | Effect                                                              |
+| :----- | :------ | :-------- | :------------------------------------------------------------------ |
+| `-1`   | SIGHUP  | Hangup    | Reload configuration (often).                                       |
+| `-2`   | SIGINT  | Interrupt | Ctrl+C. Polite stop.                                                |
+| `-9`   | SIGKILL | Kill      | **Force Kill**. Cannot be handled/ignored. Kernel destroys process. |
+| `-15`  | SIGTERM | Terminate | Default. Polite request to stop (cleanup allowed).                  |
 
-## 4. Analyzing Logs
+**Other Commands**:
 
-System logs are crucial for troubleshooting. Most reside in `/var/log`.
+- `killall firefox` : Kill process by name.
+- `pkill -u alice` : Kill all processes by user `alice`.
 
-- `/var/log/syslog`: General system messages.
-- `/var/log/auth.log`: Authentication attempts (sudo, login).
-- `/var/log/dmesg`: Kernel buffer (boot logs).
+### Background Jobs
 
-**Example Analysis**:
+- `&`: Start in background. `sleep 100 &`.
+- `Ctrl+z`: Pause (Stop) current foreground job.
+- `bg`: Resume paused job in background.
+- `fg`: Bring background job to foreground.
+- `jobs`: List active jobs in current shell.
 
-```bash
-# Find all failed login attempts
-$ grep "Failed password" /var/log/auth.log
+**Disowning**:
+If you close terminal, background jobs die (SIGHUP).
 
-# Watch system logs in real-time
-$ tail -f /var/log/syslog
-```
+- `nohup command &`: Ignore SIGHUP. Output goes to `nohup.out`.
+- `disown`: Remove job from shell's job table (so it won't die on exit).

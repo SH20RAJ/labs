@@ -1,36 +1,46 @@
-# Lab Exercises: Module IV
+# Lab Exercises: Module IV (Mastery)
 
-## Exercise 1: Boot Sector
+## Challenge 1: The "VGA" Bootloader
 
-**Goal**: Understand the bare minimum boot process.
+**Goal**: Write Real Mode Assembly.
 
-1. Write the `boot.asm` code provided in the theory.
-2. Modify it to print your own name instead of "Hello".
-3. Use a different color! (Hint: BIOS `int 10h` function `0Eh` uses BL register for color, but only in graphical modes. Try function `13h` for strings with attributes, but that's harder. Stick to text for now, or just change the message).
+1.  Write a bootloader (`boot.asm`) that switches video mode to **VGA 320x200 256-color** (`INT 10h, AH=00h, AL=13h`).
+2.  Draw a pixel in the center of the screen.
+    - Video memory for Mode 13h starts at `0xA0000`.
+    - Address = `(Y * 320) + X`.
+    - Write a color byte (e.g., `0x0F` for White) to that address.
 
-## Exercise 2: My First Kernel Module
+## Challenge 2: The Kernel Sniffer
 
-**Goal**: Compile and load a kernel module.
+**Goal**: Iterate over kernel structures.
 
-1. Create a directory `my_module`.
-2. Create `hello.c` and `Makefile`.
-3. Compile with `make`.
-4. Load it: `sudo insmod hello.ko`.
-5. Check logs: `sudo dmesg | tail`.
-6. Unload it: `sudo rmmod hello`.
-7. Check logs again.
+Write a Kernel Module that:
 
-## Exercise 3: Parameter Power
+1.  Iterates over the `current` task_struct (representing the `insmod` process).
+2.  Walks up the parent chain (`current->real_parent`) until it hits PID 1 (systemd/init).
+3.  Logs the `comm` (Name) and `pid` of every ancestor.
+    - Output: `insmod(1234) -> bash(1000) -> sshd(500) -> systemd(1)`.
 
-**Goal**: Module parameters.
+## Challenge 3: The "Oops" Creator
 
-Modify `hello.c` to accept a string parameter `who`.
+**Goal**: Debugging Kernel Panics.
 
-- Default value: "World".
-- If loaded with `who="Student"`, it should print "Hello, Student!".
+Write a module that **intentionally crashes**.
 
-```c
-static char *who = "World";
-module_param(who, charp, 0644);
-// In init: printk(..., who);
-```
+1.  Create a NULL pointer: `int *ptr = NULL;`.
+2.  Try to write to it: `*ptr = 10;`.
+3.  Load the module.
+4.  Observe the **Kernel Oops** in `dmesg`.
+5.  Analyze the **Call Trace** and **EIP** (Instruction Pointer) to pinpoint the line of code.
+
+**(Do this in a VM. It will likely kill the current process or the OS).**
+
+## Challenge 4: Keyboard Logger (Conceptual)
+
+**Goal**: Interrupt Handling.
+
+_(Advanced)_: Attempt to register an interrupt handler for IRQ 1 (Keyboard).
+
+- `request_irq(1, handler_func, IRQF_SHARED, "my_kb", (void *)(handler_func));`
+- In the handler, print "Key Pressed!" to dmesg.
+- **Note**: This conflicts with the actual keyboard driver, so you likely cannot claim it exclusively, but try `IRQF_SHARED`.

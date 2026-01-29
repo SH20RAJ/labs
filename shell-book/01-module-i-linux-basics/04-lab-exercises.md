@@ -1,48 +1,50 @@
-# Lab Exercises: Module I
+# Lab Exercises: Module I (Expanded)
 
-## Exercise 1: File & Directory Manipulation
+## Challenge 1: The "Finder" Script
 
-**Goal**: Practice basic navigation and file operations.
+**Goal**: Combine `find`, `grep`, and `cp`.
 
-1. Create a directory structure: `project/src`, `project/docs`, `project/logs`.
-2. Create 5 empty text files (file1.txt to file5.txt) in `project/src`.
-3. Move `file1.txt` and `file2.txt` to `project/docs`.
-4. Rename `project/docs/file1.txt` to `readme.md`.
-5. Display the long listing (`ls -l`) of the `project` directory showing all subdirectories.
+Write a script `archive_logs.sh` that:
 
-## Exercise 2: Permissions
+1.  Finds all files in `/var/log` (or a test folder) that end in `.log`.
+2.  BUT only if they contain the text "ERROR".
+3.  AND are larger than 1MB.
+4.  Copy them to a `backup/errors/` folder.
+5.  Append the current date to the filename (e.g., `syslog_20231020.log`).
 
-**Goal**: Understand owner/group/other permissions.
+## Challenge 2: Permission Repair
 
-1. Create a script file `hello.sh` with content `echo "Hello"`.
-2. Try to run it (`./hello.sh`). Note the error.
-3. Fix the permission using `chmod` so that only the **User** can read, write, and execute it, but **Group** and **Others** can only read it.
-4. Verify permissions with `ls -l`.
+**Goal**: User `chmod`, `find`, and loops.
 
-## Exercise 3: Text Processing Pipe
+You have a web directory `/var/www/html` that is a mess.
+Write a script `fix_perms.sh` that ensures:
 
-**Goal**: Use `grep`, `wc`, and pipes.
+1.  All **Directories** have permission `755` (`drwxr-xr-x`).
+2.  All **Files** have permission `644` (`-rw-r--r--`).
+3.  The `upload` folder (`/var/www/html/upload`) must be writable by the group (`775` and SGID).
 
-1. Run `ls -R /etc > filelist.txt` (ignore errors if permission denied).
-2. Count how many times the word "conf" appears in `filelist.txt`.
-3. Sort `filelist.txt` alphabetically and save the first 20 lines to `top20.txt`.
+**Hint**: Use `find` with `-type d` vs `-type f`.
 
-## Exercise 4: The Backup Script
+## Challenge 3: Process Killer
 
-**Goal**: Write a bash script using variables and conditionals.
+**Goal**: `ps`, `awk`, `kill`.
 
-Create a script `backup_lab.sh` that:
+Write a script that kills a process by name, but safely.
 
-1. Accepts a directory name as an argument.
-2. Checks if the directory exists.
-   - If YES: Creates a compressed tarball (`.tar.gz`) of that directory.
-   - If NO: Prints an error message.
-3. Prints "Backup completed successfully" at the end.
+1.  Usage: `./kill_app.sh <process_name>`
+2.  Find the PID of the process.
+3.  Send `SIGTERM` first.
+4.  Wait 5 seconds.
+5.  Check if it's still running.
+6.  If yes, send `SIGKILL` and print "Force Kiling PID...".
 
-**Hint**:
+## Challenge 4: The System Auditor
 
-```bash
-if [ -d "$1" ]; then
-    tar -czf "$1_backup.tar.gz" "$1"
-    ...
-```
+**Goal**: Advanced reporting.
+
+Create `audit.sh` that generates a `report.txt` containing:
+
+1.  **Disk Usage**: Percentage of root `/` partition.
+2.  **Memory**: Free RAM in MB.
+3.  **Top Process**: The name of the process consuming the most CPU right now.
+4.  **Open Ports**: List of listening TCP ports (hint: `ss` or `netstat`).

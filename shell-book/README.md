@@ -1,32 +1,50 @@
-# Shell and Kernel Lab: A Comprehensive Guide
+# Shell and Kernel Lab: The Ultimate Reference
 
-Welcome to the **Shell and Kernel Lab** book. This guide is designed to take you from basic Linux shell commands to advanced kernel programming and system calls.
+Welcome to the **Comprehensive Shell and Kernel Guide**. This is not just a syllabus—it's a detailed encyclopedia for mastering Linux, from the shell prompt to the kernel source.
 
-## About This Book
+## 📚 Table of Contents
 
-This book follows a structured syllabus divided into 5 modules, covering:
+### [Module I: Linux Shell & Commands](./01-module-i-linux-basics/)
 
-- **Module I**: Linux basics, commands, permissions, and shell scripting fundamentals.
-- **Module II**: Advanced shell scripting, automation, and system monitoring.
-- **Module III**: Deep dive into system calls and C programming for system utilities.
-- **Module IV**: Kernel programming, modules, and logging.
-- **Module V**: Advanced kernel topics like threads, custom syscalls, and synchronization.
+_The Encyclopedia of Commands._
 
-## how to Use This Book
+- **Deep Dives**: `ls`, `find`, `grep`, `chmod` (SUID/SGID), `ps`.
+- **Key Flags**: Explanations of every useful argument.
+- **Labs**: Archive scripts, Permission repair, System auditing.
 
-Each module is contained in its own directory. We recommend going through them in order.
+### [Module II: Advanced Scripting](./02-module-ii-advanced-scripting/)
 
-### Table of Contents
+_Automating the World._
 
-- [Module I: Linux Shell and Basic Scripting](./01-module-i-linux-basics/)
-- [Module II: Advanced Shell Scripting and System Automation](./02-module-ii-advanced-scripting/)
-- [Module III: System Calls](./03-module-iii-system-calls/)
-- [Module IV: Kernel Programming](./04-module-iv-kernel-programming/)
-- [Module V: System Calls and Kernel Threads](./05-module-v-kernel-threads/)
+- **Bash Mastery**: Arrays, Associative Arrays, Parameter Expansion (`${var%pat}`).
+- **Debugging**: Traps, `set -euo pipefail`.
+- **Tools**: `awk`, `sed`, `cron` vs Systemd Timers.
 
-## Prerequisites
+### [Module III: System Calls](./03-module-iii-system-calls/)
 
-- A Linux environment (VM, WSL, or native installation).
-- Basic familiarity with using a terminal.
-- GCC compiler for C programs.
-- Kernel headers installed for kernel programming modules.
+_Talking to the Kernel._
+
+- **File I/O**: `open` (O_CREAT, O_EXCL), `dup2` (Redirection), `fcntl`.
+- **Process**: `fork`, `execvp`, `waitpid` (WIFEXITED).
+- **Project**: Building a Shell with Pipes support.
+
+### [Module IV: Kernel Programming](./04-module-iv-kernel-programming/)
+
+_Bare Metal & Drivers._
+
+- **Bootloader**: Real Mode Assembly, BIOS Interrupts (`INT 10h`).
+- **Modules**: `kmalloc` (GFP_KERNEL), `printk` levels, Kbuild Makefiles.
+
+### [Module V: Advanced Kernel Features](./05-module-v-kernel-threads/)
+
+_Concurrency & Hacking._
+
+- **Syscalls**: Adding custom syscalls & syscall tables.
+- **Concurrency**: Spinlocks vs Mutexes vs Semaphores.
+- **Threads**: `kthread_run`.
+
+## 🛠️ Prerequisites
+
+- **OS**: Linux (Ubuntu/Debian/Fedora) or WSL2.
+- **Compiler**: `gcc`, `make`, `nasm` (for Module IV).
+- **Kernel Headers**: `sudo apt install linux-headers-$(uname -r)`.

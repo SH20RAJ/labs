@@ -1,89 +1,76 @@
-# Kernel Threads and Synchronization
+# Kernel Synchronization & Threads: Concurrency
 
-## 1. Kernel Threads
+## 1. Kernel Threads (`kthread`)
 
-Kernel threads act like user threads but run in kernel space. They are useful for background tasks (e.g., flushing disk buffers).
+Kernel threads run only in kernel mode. They have no user address space (which makes expensive context switches cheaper).
 
 **API**: `<linux/kthread.h>`
 
-### Creating a Thread
+| Function                           | Description                                       |
+| :--------------------------------- | :------------------------------------------------ |
+| `kthread_run(func, data, name)`    | Create and start a thread immediately.            |
+| `kthread_create(func, data, name)` | Create but don't start. (Need `wake_up_process`). |
+| `kthread_stop(task)`               | Ask thread to stop. Returns thread return value.  |
+| `kthread_should_stop()`            | Check inside thread loop if stop was requested.   |
+
+**Example Loop**:
 
 ```c
-#include <linux/kthread.h>
-#include <linux/delay.h>
-
-static struct task_struct *my_thread;
-
-int thread_fn(void *data) {
+int my_worker(void *data) {
     while (!kthread_should_stop()) {
-        printk(KERN_INFO "Thread running...\n");
-        msleep(1000); // Sleep 1 second
+        // Do work
+        msleep(100);
     }
     return 0;
 }
-
-// In module_init:
-my_thread = kthread_run(thread_fn, NULL, "my_worker");
 ```
 
-### Stopping a Thread
+## 2. Synchronization Primitives
 
-```c
-// In module_exit:
-if (my_thread) {
-    kthread_stop(my_thread);
-}
-```
+The Kernel is preemptive. We MUST lock shared data.
 
-## 2. Synchronization
+### A. Spinlocks (`<linux/spinlock.h>`)
 
-When multiple threads (or ISRs) access shared data, we need locking.
+**Behavior**: Busy Loop (CPU cycles). "Are we there yet? No? Check again."
 
-### Mutex
+- **Context**: Interrupt Context (ISRs) or Atomic Context.
+- **Rule**: **NEVER SLEEP** holding a spinlock.
+- **API**:
+  - `spin_lock(&lock)`
+  - `spin_unlock(&lock)`
+  - `spin_lock_irqsave(&lock, flags)`: Disables interrupts locally (Safe for ISR sharing).
 
-Sleeping lock (good for threads).
+### B. Mutexes (`<linux/mutex.h>`)
 
-```c
-#include <linux/mutex.h>
+**Behavior**: Sleep (Context Switch). "Wake me up when it's free."
 
-static DEFINE_MUTEX(my_mutex);
+- **Context**: Process Context only.
+- **Rule**: Used for "long" held locks. Can sleep.
+- **API**:
+  - `mutex_lock(&lock)`
+  - `mutex_unlock(&lock)`
 
-void safe_function() {
-    mutex_lock(&my_mutex);
-    // Critical Section
-    mutex_unlock(&my_mutex);
-}
-```
+### C. Semaphores (`<linux/semaphore.h>`)
 
-### Spinlocks
+**Behavior**: Counting lock. Allows N concurrent holders.
 
-Busy-wait lock (good for interrupts, code must be fast).
+- **API**:
+  - `down(&sem)`: Decrement (Acquire). Sleeps if 0.
+  - `up(&sem)`: Increment (Release).
 
-```c
-#include <linux/spinlock.h>
+## 3. Atomic Operations (`<linux/atomic.h>`)
 
-static DEFINE_SPINLOCK(my_lock);
+For simple integers, avoid locks. Use hardware atomic instructions.
 
-void fast_function() {
-    spin_lock(&my_lock);
-    // Critical Section (NO SLEEPING HERE)
-    spin_unlock(&my_lock);
-}
-```
+- `atomic_set(&v, 5)`
+- `atomic_add(10, &v)`
+- `atomic_inc(&v)`
+- `atomic_read(&v)`
 
-### Semaphores
+**Why?**
+`v++` is NOT atomic. It becomes:
 
-Old school, counting locks.
-
-```c
-#include <linux/semaphore.h>
-
-static struct semaphore my_sem;
-
-// Init
-sema_init(&my_sem, 1); // 1 = Mutex behavior
-
-// Use
-down(&my_sem); // Acquire
-up(&my_sem);   // Release
-```
+1.  Read `v` to register.
+2.  Increment register.
+3.  Write register to memory.
+    _Two threads doing this simultaneously causes a Lost Update._

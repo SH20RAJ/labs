@@ -1,33 +1,44 @@
-# Lab Exercises: Module III
+# Lab Exercises: Module III (Mastery)
 
-## Exercise 1: MyCopy
+## Challenge 1: `cp -R` in C
 
-**Goal**: File syscalls (`open`, `read`, `write`).
+**Goal**: Recursive Copy using System Calls.
 
-Write a C program `mycp` that acts like the `cp` command.
+Write `mycp.c` that supports:
 
-- Usage: `./mycp <source_file> <dest_file>`
-- Buffer size: 4096 bytes.
-- Permissions: Destination file should be readable/writable by user (0600).
-- Error Handling: Print meaningful error if source doesn't exist.
+1.  Recursively copying directories (Check `S_ISDIR(st.st_mode)` from `stat()`).
+2.  Preserving file permissions (`fchmod(dest_fd, st.st_mode)`).
+3.  Handling Errors: If a file fails, print `perror` but continue to next.
 
-## Exercise 2: Tiny Shell
+## Challenge 2: The Fork-Bomb Prevention
 
-**Goal**: `fork`, `exec`, `wait`.
+**Goal**: `fork()` limits.
 
-Compile and run the basic shell code provided in the "Custom Shell Implementation" chapter.
-**Enhance it**:
+Write a program that:
 
-1. Add a `pwd` built-in command that uses `getcwd()`.
-2. Add an `echo` built-in command.
+1.  Loops and calls `fork()`.
+2.  Inside the child, loop forever.
+3.  **BUT**: Before forking, check `getrlimit(RLIMIT_NPROC)` to see the system limit.
+4.  If the number of children reaches 50% of the limit, STOP forking and print "Safety Limit Reached".
+5.  Then, kill all children (`SIGKILL`) and exit gracefully.
 
-## Exercise 3: Daemonize
+## Challenge 3: Pipe Operator
 
-**Goal**: Process management.
+**Goal**: Implement `ls | wc -l` in C.
 
-Write a C program called `logger_daemon.c` that:
+Write `mypipe.c` that manually creates the pipeline:
 
-1. Turns itself into a daemon process (runs in background, detached).
-2. Every 5 seconds, writes the current timestamp to `/tmp/daemon.log`.
-3. Run it, verify with `ps aux | grep logger`, and check the log file.
-4. Kill it using `kill <pid>`.
+1.  `pipe()`.
+2.  `fork()` -> Child 1: `ls`. Redirect stdout to pipe write-end.
+3.  `fork()` -> Child 2: `wc -l`. Redirect stdin to pipe read-end.
+4.  Parent closes pipe ends and waits for both.
+
+## Challenge 4: The Daemon with Logs
+
+**Goal**: `dup2` + Daemon.
+
+1.  Daemonize the process.
+2.  Open `/var/log/mydaemon.log`.
+3.  Use `dup2` to redirect `STDOUT` and `STDERR` to this log file.
+4.  Now, any `printf()` or `perror()` will automatically go to the log file.
+5.  Run a loop that prints "Daemon Timestamp: <time>" every 10 seconds.

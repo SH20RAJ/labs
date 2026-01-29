@@ -2,65 +2,61 @@
 
 ## 1. Process Creation: `fork()`
 
-`fork()` creates a new process by duplicating the calling process.
+`fork()` is the only way to create a new process in Unix.
 
-- The new process is the **Child**.
-- The calling process is the **Parent**.
+**Prototype**: `pid_t fork(void);`
 
-```c
-#include <unistd.h>
-#include <stdio.h>
+| Return Value | Meaning                                              |
+| :----------- | :--------------------------------------------------- |
+| `0`          | Running in **Child** process.                        |
+| `> 0`        | Running in **Parent** process. (Value is Child PID). |
+| `-1`         | Error (e.g., limit reached).                         |
 
-int main() {
-    pid_t pid = fork();
+**Memory Handling**:
+Uses **Copy-on-Write (COW)**. Parent and Child share physical memory pages until one of them writes to memory. Then, the kernel duplicates only that page.
 
-    if (pid < 0) {
-        perror("Fork failed");
-    } else if (pid == 0) {
-        printf("I am the child process (PID: %d)\n", getpid());
-    } else {
-        printf("I am the parent process. My child's PID is %d\n", pid);
-    }
-    return 0;
-}
-```
+## 2. Executing Programs: The `exec()` Family
 
-## 2. Executing Programs: `exec()` Family
+Replaces the current process image with a new program.
+**It does not return** (unless error).
 
-`fork()` creates a copy. `exec()` replaces the current process image with a new program.
-Common variants: `execl`, `execv`, `execvp`.
+| Function                        | Path Search?    | Args Format | Environment |
+| :------------------------------ | :-------------- | :---------- | :---------- |
+| `execl(path, arg0, ..., NULL)`  | No              | List        | Inherit     |
+| `execlp(file, arg0, ..., NULL)` | **Yes ($PATH)** | List        | Inherit     |
+| `execle(path, ..., NULL, envp)` | No              | List        | **Custom**  |
+| `execv(path, argv[])`           | No              | Array       | Inherit     |
+| `execvp(file, argv[])`          | **Yes ($PATH)** | Array       | Inherit     |
+| `execvpe(file, argv[], envp)`   | **Yes**         | Array       | **Custom**  |
 
-```c
-// Example: Running 'ls -l'
-char *args[] = {"ls", "-l", NULL};
-execvp("ls", args);
-// Code below here will NOT run if execvp succeeds!
-perror("execvp failed");
-```
+## 3. Process Synchronization: `wait()`
 
-## 3. Waiting for Processes: `wait()`
+### `waitpid()`
 
-A parent should wait for its child to finish to avoid creating "zombie" processes.
+**Prototype**: `pid_t waitpid(pid_t pid, int *wstatus, int options);`
 
-```c
-#include <sys/wait.h>
+| Option      | Description                                                |
+| :---------- | :--------------------------------------------------------- |
+| `WNOHANG`   | Return immediately if no child has exited. (Non-blocking). |
+| `WUNTRACED` | Also return if child is stopped (SIGSTOP).                 |
 
-int status;
-wait(&status); // Waits for any child to terminate
-if (WIFEXITED(status)) {
-    printf("Child exited with status %d\n", WEXITSTATUS(status));
-}
-```
+### Inspecting Status `wstatus`
 
-## 4. Background Processes & Daemons
+- `WIFEXITED(status)`: True if exited normally.
+- `WEXITSTATUS(status)`: Get the exit code (0-255).
+- `WIFSIGNALED(status)`: True if killed by signal.
+- `WTERMSIG(status)`: Get the number of the signal that killed it.
 
-### Creating a Daemon
+## 4. Zombies and Orphans
 
-A daemon is a background process not attached to a terminal.
-**Steps**:
+- **Zombie**: A child that exited but parent hasn't `wait()`ed. Consumes a PID but no memory.
+- **Orphan**: Parent died before child. Child is adopted by `init` (PID 1).
 
-1. `fork()` and exit parent (detach from shell).
-2. `setsid()` (create new session).
-3. `chdir("/")` (unmount safety).
-4. `umask(0)` (reset permissions).
-5. Close file descriptors (stdin, stdout, stderr).
+## 5. Daemonization (The Right Way)
+
+1.  `fork()`, parent exits. (Verify not group leader).
+2.  `setsid()` (Create new session, detach TTY).
+3.  `fork()` again (Verify not session leader, cannot re-acquire TTY).
+4.  `chdir("/")`.
+5.  `umask(0)`.
+6.  Close all FDs (0, 1, 2).

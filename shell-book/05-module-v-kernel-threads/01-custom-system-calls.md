@@ -1,73 +1,72 @@
-# Adding a Custom System Call
+# Custom System Calls: Hacking the Kernel
 
-Adding a system call is an advanced task that requires recompiling the kernel. **Note: This guide assumes a Linux Kernel 5.x/6.x environment.**
+Adding a system call requires modifying the kernel source and recompiling. This is the ultimate "Root" power.
 
-## The Concept
+## 1. The Syscall Table (x86_64)
 
-1. **Syscall Table**: A list of function pointers.
-2. **Syscall Number**: unique ID for your call.
-3. **Kernel Function**: The C implementation (`sys_mycall`).
+The kernel maintains a table of function pointers.
 
-## Steps to Add a Syscall
+- **File**: `arch/x86/entry/syscalls/syscall_64.tbl`
+- **Format**: `<number> <abi> <name> <entry point>`
+  ```text
+  548   common   my_syscall   sys_my_syscall
+  ```
 
-### 1. Define the System Call
+## 2. Defining the Syscall (`SYSCALL_DEFINE`)
 
-In the kernel source tree, find a suitable place (e.g., `kernel/sys.c` or a new file).
+Use the macros in `<linux/syscalls.h>` to ensure correct argument handling and security checks (wrappers).
+
+**Macro**: `SYSCALL_DEFINEx(name, type1, arg1, ...)` where x is number of args (0-6).
 
 ```c
-#include <linux/kernel.h>
-#include <linux/syscalls.h>
+// kernel/sys.c
 
-SYSCALL_DEFINE0(hello_kernel)
+SYSCALL_DEFINE2(my_math, int, a, int, b)
 {
-    printk("Hello from the System Call!\n");
-    return 0;
+    printk(KERN_INFO "Syscall my_math called with %d, %d\n", a, b);
+    return a + b;
 }
 ```
 
-### 2. Register the Syscall
+## 3. Passing Arguments from User Space
 
-Edit the syscall table. Arch specific: `arch/x86/entry/syscalls/syscall_64.tbl`.
+Registers used for x64 Syscalls:
 
-Add a line at the end:
+1.  **Syscall Number**: `RAX`
+2.  **Args**: `RDI`, `RSI`, `RDX`, `R10`, `R8`, `R9`.
+3.  **Return**: `RAX`.
 
-```
-450    common    hello_kernel    sys_hello_kernel
-```
+## 4. Invoking without libc (`syscall()`)
 
-_(450 is an example number, must be the next available)._
-
-### 3. Add Prototype
-
-In `include/linux/syscalls.h`, add:
+Since `glibc` doesn't have a wrapper function for your new syscall yet, use `syscall()`.
 
 ```c
-asmlinkage long sys_hello_kernel(void);
+#define __NR_my_math 548
+
+long res = syscall(__NR_my_math, 10, 20);
+if (res < 0) {
+    perror("syscall failed");
+}
 ```
 
-### 4. Compile and Install Kernel
+## 5. Security Implications
 
-```bash
-make -j$(nproc)
-sudo make modules_install
-sudo make install
-reboot
-```
+**NEVER trust user pointers!**
+Users pass virtual addresses. The kernel cannot dereference them directly (security risk + they might be swapped out).
 
-## Invoking the New Syscall
+**Safe Data Copying**:
 
-Since `glibc` doesn't know about it, use `syscall()`.
+- `copy_from_user(to, from, n)`: Read data from user space.
+- `copy_to_user(to, from, n)`: Write data to user space.
 
 ```c
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <stdio.h>
-
-#define SYS_HELLO_KERNEL 450 // The number you assigned
-
-int main() {
-    long res = syscall(SYS_HELLO_KERNEL);
-    printf("Syscall returned %ld\n", res);
+SYSCALL_DEFINE1(set_msg, char __user *, msg)
+{
+    char buf[128];
+    if (copy_from_user(buf, msg, sizeof(buf))) {
+        return -EFAULT;
+    }
+    printk(KERN_INFO "Message: %s\n", buf);
     return 0;
 }
 ```
